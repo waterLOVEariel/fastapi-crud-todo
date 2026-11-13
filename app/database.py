@@ -1,19 +1,21 @@
-"""数据库连接配置。
+"""数据库连接配置：通过 SQLAlchemy engine 连接 MySQL。"""
 
-用 SQLite 起步，不用装 MySQL 服务，先跑通再说。
-后面想换 MySQL 时，只需要改这一处 URL 即可，其余代码不用动。
-"""
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 数据库文件会生成在项目根目录下，叫 todo.db
-SQLALCHEMY_DATABASE_URL = "sqlite:///./todo.db"
+# .env 在项目根目录；显式指定路径，避免从别的目录启动时找不到
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-# check_same_thread=False 是 SQLite 在 FastAPI 多线程下的必要配置
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+# 连接串从环境变量读，代码里不出现密码
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+if not SQLALCHEMY_DATABASE_URL:
+    raise RuntimeError("未找到 DATABASE_URL,请复制 .env.example 为 .env 并填写")
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # 每个请求创建一个独立的数据库会话
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

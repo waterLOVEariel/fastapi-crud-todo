@@ -1,6 +1,6 @@
 # Todo API — FastAPI + SQLAlchemy 待办事项后端
 
-一个分层清晰的 FastAPI 后端示例项目，实现待办事项（Todo）与分类（Category）的一对多关系，支持完整 CRUD、筛选、排序、分页和关联查询。
+一个分层清晰的 FastAPI 后端示例项目，实现待办事项（Todo）与分类（Category）的一对多关系，支持完整 CRUD、筛选、排序、分页和关联查询。数据库使用 MySQL 8。
 
 ## 功能
 
@@ -13,10 +13,14 @@
 
 ## 技术栈
 
-- FastAPI（异步 Web 框架）
-- SQLAlchemy 2.0（ORM，声明式模型 + 关系映射）
-- Pydantic 2.x（请求 / 响应数据校验）
-- SQLite（零配置起步，换 MySQL 只需改连接串）
+| 组件 | 版本 / 说明 |
+| --- | --- |
+| FastAPI | 0.115，Web 框架 |
+| SQLAlchemy | 2.0，ORM，声明式模型 + 关系映射 |
+| Pydantic | 2.x，请求 / 响应数据校验 |
+| MySQL | 8.0，字符集 `utf8mb4`（完整支持 emoji 与生僻字） |
+| PyMySQL | MySQL 驱动 |
+| python-dotenv | 从 `.env` 加载数据库配置 |
 
 ## 目录结构
 
@@ -30,6 +34,7 @@ fastapi-crud-todo/
 │   ├── crud.py       # 增删改查 + 动态查询逻辑
 │   └── main.py       # 接口路由
 ├── requirements.txt  # 依赖清单
+├── .env.example      # 环境变量模板（复制为 .env 后填写）
 ├── .gitignore
 └── README.md
 ```
@@ -53,23 +58,54 @@ fastapi-crud-todo/
 
 ## 快速开始
 
-```bash
-# 1. 创建并激活虚拟环境
-python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS / Linux:
-source venv/bin/activate
+### 1. 准备数据库
 
-# 2. 安装依赖
+先启动 MySQL 服务，然后用 root 创建专用库和专用账号（遵循最小权限原则，应用不使用 root）：
+
+```sql
+CREATE DATABASE IF NOT EXISTS todo_db
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'todo_app'@'localhost' IDENTIFIED BY '你的密码';
+
+GRANT ALL PRIVILEGES ON todo_db.* TO 'todo_app'@'localhost';
+
+FLUSH PRIVILEGES;
+```
+
+> 字符集必须用 `utf8mb4`。MySQL 里的 `utf8` 最多只存 3 字节，存不了 emoji。
+
+### 2. 配置环境变量
+
+```bash
+# 复制模板，然后把里面的用户名和密码改成你自己的
+cp .env.example .env        # Windows: copy .env.example .env
+```
+
+`.env` 内容形如：
+
+```
+DATABASE_URL=mysql+pymysql://todo_app:你的密码@127.0.0.1:3306/todo_db?charset=utf8mb4
+```
+
+`.env` 已被 `.gitignore` 排除，不会提交到仓库。
+
+### 3. 安装依赖并启动
+
+```bash
+# 创建并激活虚拟环境
+python -m venv venv
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # macOS / Linux
+
+# 安装依赖
 pip install -r requirements.txt
 
-# 3. 启动服务
+# 启动服务
 uvicorn app.main:app --reload
-
-# 4. 打开接口文档，直接点按钮测试
-# http://127.0.0.1:8000/docs
 ```
+
+首次启动会自动建表。打开 <http://127.0.0.1:8000/docs> 即可在页面上直接调接口。
 
 ## 查询参数示例
 
@@ -91,3 +127,7 @@ Category 1 ──── N Todo
 Todo.category_id 是外键，指向 Category.id；
 通过 relationship 双向绑定，查 Todo 时能直接拿到所属分类对象。
 ```
+
+## 关于数据库迁移
+
+本项目用 `Base.metadata.create_all()` 建表，它只创建**不存在的表**，不会修改已有表的结构。改动模型字段后，需要手动 `ALTER TABLE` 或使用 Alembic 管理迁移。
